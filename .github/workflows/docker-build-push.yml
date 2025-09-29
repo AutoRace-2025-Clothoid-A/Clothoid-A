@@ -1,0 +1,68 @@
+name: Build & Push Docker (on main, when Dockerfile changes)
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      dockerfile_changed: ${{ steps.filter.outputs.dockerfile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            dockerfile:
+              - 'docker/Dockerfile'
+
+  build-push:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dockerfile_changed == 'true'
+    runs-on: [self-hosted, linux, docker]
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: junspring/2025-autorace-clothoid-a
+      TAG: latest
+      ROS_DISTRO: noetic
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build image
+        run: |
+          docker build -t $IMAGE:$TAG -t $IMAGE:latest ./docker
+
+      - name: Smoke test (catkin_make)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/catkin_ws" \
+            -w /catkin_ws \
+            $IMAGE:$TAG \
+            bash -lc '
+              set -e
+              source /opt/ros/$ROS_DISTRO/setup.bash
+              apt-get update
+              rosdep update
+              rosdep install --from-paths src --ignore-src -r -y
+              catkin_make -DCMAKE_BUILD_TYPE=Release
+            '
+
+      - name: Push images
+        run: |
+          docker push $IMAGE:$TAG

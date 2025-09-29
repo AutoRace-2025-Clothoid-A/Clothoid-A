@@ -1,0 +1,38 @@
+name: PR Validate with Prebuilt Docker
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: junspring/2025-autorace-clothoid-a:latest
+  ROS_DISTRO: noetic
+
+jobs:
+  build-test:
+    runs-on: [self-hosted, linux, docker]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull prebuilt image
+        run: |
+          docker pull "$IMAGE"
+
+      - name: catkin_make inside container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/catkin_ws" \
+            -w /catkin_ws \
+            "$IMAGE" \
+            bash -lc '
+              set -e
+              source /opt/ros/$ROS_DISTRO/setup.bash
+              apt-get update
+              rosdep update
+              rosdep install --from-paths src --ignore-src -r -y
+              catkin_make -DCMAKE_BUILD_TYPE=Release
+            '
