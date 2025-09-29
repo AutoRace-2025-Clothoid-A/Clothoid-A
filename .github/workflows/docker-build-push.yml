@@ -1,6 +1,8 @@
-name: Build & Push Docker (on main, when Dockerfile changes)
+name: Build and Push Docker
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
     branches: [ main ]
 
@@ -40,10 +42,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to GHCR
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
       - name: Build image
         run: |
           docker build -t $IMAGE:$TAG -t $IMAGE:latest ./docker
@@ -51,14 +49,16 @@ jobs:
       - name: Smoke test (catkin_make)
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/catkin_ws" \
-            -w /catkin_ws \
-            $IMAGE:$TAG \
+            -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
+            "$IMAGE" \
             bash -lc '
               set -e
               source /opt/ros/$ROS_DISTRO/setup.bash
               apt-get update
               rosdep update
+              mkdir -p /tmp/ws/src
+              cp -a /catkin_ws/src/. /tmp/ws/src/
+              cd /tmp/ws
               rosdep install --from-paths src --ignore-src -r -y
               catkin_make -DCMAKE_BUILD_TYPE=Release
             '
