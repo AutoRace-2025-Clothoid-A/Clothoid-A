@@ -15,4 +15,4 @@ ENV ROS_DISTRO=noetic
 RUN mkdir -p /catkin_ws/src
 WORKDIR /catkin_ws
 
-CMD ["bash"]
+CMD ["bash"] #haha
