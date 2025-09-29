@@ -12,7 +12,26 @@ env:
   ROS_DISTRO: noetic
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      src_changed: ${{ steps.filter.outputs.src }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            src:
+              - 'src'
+
   build-test:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.src_changed == 'true'
     runs-on: [self-hosted, linux, docker]
     steps:
       - name: Checkout
