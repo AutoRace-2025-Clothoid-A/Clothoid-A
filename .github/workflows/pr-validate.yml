@@ -33,7 +33,7 @@ jobs:
               apt-get update
               rosdep update
               mkdir -p /tmp/ws/src
-              rsync -a --delete /catkin_ws/src/ /tmp/ws/src/
+              cp -a --delete /catkin_ws/src/. /tmp/ws/src/
               cd /tmp/ws
               rosdep install --from-paths src --ignore-src -r -y
               catkin_make -DCMAKE_BUILD_TYPE=Release
