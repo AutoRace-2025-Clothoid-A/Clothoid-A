@@ -24,10 +24,7 @@ jobs:
 
       - name: catkin_make inside container
         run: |
-          RUN_UID=$(id -u)
-          RUN_GID=$(id -g)
           docker run --rm \
-            -u ${RUN_UID}:${RUN_GID} \
             -v "${{ github.workspace }}/src:/catkin_ws/src" \
             -w /catkin_ws \
             "$IMAGE" \
