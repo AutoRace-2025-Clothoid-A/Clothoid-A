@@ -25,14 +25,16 @@ jobs:
       - name: catkin_make inside container
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}/src:/catkin_ws/src" \
-            -w /catkin_ws \
+            -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
             "$IMAGE" \
             bash -lc '
               set -e
               source /opt/ros/$ROS_DISTRO/setup.bash
               apt-get update
               rosdep update
+              mkdir -p /tmp/ws/src
+              rsync -a --delete /catkin_ws/src/ /tmp/ws/src/
+              cd /tmp/ws
               rosdep install --from-paths src --ignore-src -r -y
               catkin_make -DCMAKE_BUILD_TYPE=Release
             '
