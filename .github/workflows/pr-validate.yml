@@ -50,21 +50,21 @@ jobs:
   build-test-direct:
     needs: detect-changes-direct
     if: ${{ github.event_name != 'workflow_run' && needs.detect-changes-direct.outputs.src_changed == 'true' && needs.detect-changes-direct.outputs.dockerfile_changed != 'true' }}
-    runs-on: [self-hosted, linux, docker]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure image (pull or build fallback)
         run: |
           set -e
-          if ! docker pull "$IMAGE"; then
+          if ! sudo docker pull "$IMAGE"; then
             echo "Prebuilt image not found. Building locally as fallback..."
-            docker build -t "$IMAGE" ./docker
+            sudo docker build -t "$IMAGE" ./docker
           fi
 
       - name: catkin_make inside container
         run: |
-          docker run --rm \
+          sudo docker run --rm \
             -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
             "$IMAGE" \
             bash -lc '
@@ -102,7 +102,7 @@ jobs:
   build-test-wr:
     needs: detect-changes-wr
     if: ${{ needs.detect-changes-wr.outputs.src_changed == 'true' }}
-    runs-on: [self-hosted, linux, docker]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,14 +111,14 @@ jobs:
       - name: Pull prebuilt image (built in docker.yml)
         run: |
           set -e
-          docker pull "$IMAGE" || {
+          sudo docker pull "$IMAGE" || {
             echo "Image pull failed. Building locally as fallback..."
-            docker build -t "$IMAGE" ./docker
+            sudo docker build -t "$IMAGE" ./docker
           }
 
       - name: catkin_make inside container
         run: |
-          docker run --rm \
+          sudo docker run --rm \
             -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
             "$IMAGE" \
             bash -lc '
