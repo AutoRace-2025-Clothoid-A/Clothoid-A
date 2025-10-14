@@ -50,7 +50,7 @@ jobs:
   build-test-direct:
     needs: detect-changes-direct
     if: ${{ github.event_name != 'workflow_run' && needs.detect-changes-direct.outputs.src_changed == 'true' && needs.detect-changes-direct.outputs.dockerfile_changed != 'true' }}
-    runs-on: [self-hosted, linux, docker]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -102,7 +102,7 @@ jobs:
   build-test-wr:
     needs: detect-changes-wr
     if: ${{ needs.detect-changes-wr.outputs.src_changed == 'true' }}
-    runs-on: [self-hosted, linux, docker]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
