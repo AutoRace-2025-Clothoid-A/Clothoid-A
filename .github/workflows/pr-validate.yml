@@ -57,14 +57,14 @@ jobs:
       - name: Ensure image (pull or build fallback)
         run: |
           set -e
-          if ! sudo docker pull "$IMAGE"; then
+          if ! docker pull "$IMAGE"; then
             echo "Prebuilt image not found. Building locally as fallback..."
-            sudo docker build -t "$IMAGE" ./docker
+            docker build -t "$IMAGE" ./docker
           fi
 
       - name: catkin_make inside container
         run: |
-          sudo docker run --rm \
+          docker run --rm \
             -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
             "$IMAGE" \
             bash -lc '
@@ -111,14 +111,14 @@ jobs:
       - name: Pull prebuilt image (built in docker.yml)
         run: |
           set -e
-          sudo docker pull "$IMAGE" || {
+          docker pull "$IMAGE" || {
             echo "Image pull failed. Building locally as fallback..."
-            sudo docker build -t "$IMAGE" ./docker
+            docker build -t "$IMAGE" ./docker
           }
 
       - name: catkin_make inside container
         run: |
-          sudo docker run --rm \
+          docker run --rm \
             -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
             "$IMAGE" \
             bash -lc '
