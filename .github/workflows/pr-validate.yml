@@ -5,6 +5,14 @@ on:
     branches: [ main ]
   push:
     branches: [ main ]
+  workflow_run:
+    workflows: ["Build and Push Docker"]   # docker.yml의 name과 정확히 일치
+    types: [completed]
+
+# 같은 커밋/PR에 대해 중복 실행되면 가장 최근 것만 유지
+concurrency:
+  group: pr-validate-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.ref || github.sha }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -14,34 +22,101 @@ env:
   ROS_DISTRO: noetic
 
 jobs:
-  detect-changes:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 1) 직접 트리거된 경우(PR/push). Dockerfile이 바뀐 경우는 건너뛰어
+  #    (docker.yml 완료 후 workflow_run 경로로 실행되게 함)
+  # ─────────────────────────────────────────────────────────────────────────────
+  detect-changes-direct:
+    if: ${{ github.event_name != 'workflow_run' }}
+    runs-on: ubuntu-latest
+    outputs:
+      src_changed: ${{ steps.filter.outputs.src }}
+      dockerfile_changed: ${{ steps.filter.outputs.dockerfile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          ref:  ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
+          filters: |
+            src:
+              - 'src/**'
+            dockerfile:
+              - 'docker/Dockerfile'
+
+  build-test-direct:
+    needs: detect-changes-direct
+    if: ${{ github.event_name != 'workflow_run' && needs.detect-changes-direct.outputs.src_changed == 'true' && needs.detect-changes-direct.outputs.dockerfile_changed != 'true' }}
+    runs-on: [self-hosted, linux, docker]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure image (pull or build fallback)
+        run: |
+          set -e
+          if ! docker pull "$IMAGE"; then
+            echo "Prebuilt image not found. Building locally as fallback..."
+            docker build -t "$IMAGE" ./docker
+          fi
+
+      - name: catkin_make inside container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/src:/catkin_ws/src:ro" \
+            "$IMAGE" \
+            bash -lc '
+              set -e
+              source /opt/ros/$ROS_DISTRO/setup.bash
+              apt-get update
+              rosdep update
+              mkdir -p /tmp/ws/src
+              cp -a /catkin_ws/src/. /tmp/ws/src/
+              cd /tmp/ws
+              rosdep install --from-paths src --ignore-src -r -y
+              catkin_make -DCMAKE_BUILD_TYPE=Release
+            '
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2) docker.yml이 끝난 뒤 이어서 도는 경로 (동시에 트리거된 경우 순서 보장)
+  # ─────────────────────────────────────────────────────────────────────────────
+  detect-changes-wr:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     outputs:
       src_changed: ${{ steps.filter.outputs.src }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-
-      - name: Paths filter
-        id: filter
+      - id: filter
         uses: dorny/paths-filter@v3
         with:
+          base: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+          ref:  ${{ github.event.workflow_run.head_sha }}
           filters: |
             src:
               - 'src/**'
 
-  build-test:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.src_changed == 'true'
+  build-test-wr:
+    needs: detect-changes-wr
+    if: ${{ needs.detect-changes-wr.outputs.src_changed == 'true' }}
     runs-on: [self-hosted, linux, docker]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Pull prebuilt image
+      - name: Pull prebuilt image (built in docker.yml)
         run: |
-          docker pull "$IMAGE"
+          set -e
+          docker pull "$IMAGE" || {
+            echo "Image pull failed. Building locally as fallback..."
+            docker build -t "$IMAGE" ./docker
+          }
 
       - name: catkin_make inside container
         run: |
