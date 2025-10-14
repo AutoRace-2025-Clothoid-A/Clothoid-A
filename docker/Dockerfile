@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install --quiet -y \
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-serial \
  && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y \
@@ -30,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-vision-msgs \
     ros-noetic-serial \
     ros-noetic-joy \
+    ros-noetic-robot-pose-ekf \
  && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3 /usr/bin/python
