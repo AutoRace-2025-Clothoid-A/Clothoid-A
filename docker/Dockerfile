@@ -1,5 +1,6 @@
 FROM osrf/ros:noetic-desktop-full
 
+ENV ROS_DISTRO=noetic
 ENV ROS_MASTER_URI=http://localhost:11311
 ENV ROS_HOSTNAME=localhost
 
@@ -16,20 +17,12 @@ RUN apt-get update && apt-get install --quiet -y \
     locales \
     sudo \
     bash-completion \
-    libcanberra-gtk-module \
-    libcanberra-gtk3-module \
+    v4l-utils \
+    build-essential \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN apt-get update && apt-get install -y \
-    python3-rosdep \
-    python3-rosinstall \
-    python3-rosinstall-generator \
-    python3-wstool \
-    build-essential \
-    python3-rosdep \
     python3-pip \
-    v4l-utils \
-    libcanberra-gtk-module \
  && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y \
@@ -43,7 +36,6 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python
 
 SHELL ["/bin/bash", "-c"]
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-ENV ROS_DISTRO=noetic
 
 RUN mkdir -p /catkin_ws/src
 WORKDIR /catkin_ws
